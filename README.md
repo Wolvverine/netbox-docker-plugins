@@ -1,1 +1,3 @@
-# Wolvverine-netbox-docker-plugins
+# Netbox-docker-plugins image
+
+Netbox docker image with plugins
