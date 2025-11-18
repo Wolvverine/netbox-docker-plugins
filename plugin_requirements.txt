@@ -1,0 +1,2 @@
+netbox_diode_plugin
+netbox_dns
