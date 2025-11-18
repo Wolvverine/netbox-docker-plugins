@@ -1,0 +1,128 @@
+services:
+  netbox:
+    image: ghcr.io/wolvverine/netbox-plugins:latest
+    ports:
+      - 8090:8080
+    depends_on:
+      - postgres
+      - redis
+      - redis-cache
+    env_file: stack.env
+    user: "unit:root"
+    healthcheck:
+      test: curl -f http://localhost:8080/login/ || exit 1
+      start_period: 90s
+      timeout: 3s
+      interval: 15s
+    volumes:
+      - netbox-config-files:/etc/netbox/config:rw
+      - netbox-media-files:/opt/netbox/netbox/media:rw
+      - netbox-reports-files:/opt/netbox/netbox/reports:rw
+      - netbox-scripts-files:/opt/netbox/netbox/scripts:rw
+      
+  netbox-worker:
+    image: ghcr.io/wolvverine/netbox-plugins:latest
+    depends_on:
+      netbox:
+        condition: service_healthy
+    env_file: stack.env
+    user: "unit:root"
+    command:
+      - /opt/netbox/venv/bin/python
+      - /opt/netbox/netbox/manage.py
+      - rqworker
+    healthcheck:
+      test: ps -aux | grep -v grep | grep -q rqworker || exit 1
+      start_period: 20s
+      timeout: 3s
+      interval: 15s
+    volumes:
+      - netbox-config-files:/etc/netbox/config:rw
+      - netbox-media-files:/opt/netbox/netbox/media:rw
+      - netbox-reports-files:/opt/netbox/netbox/reports:rw
+      - netbox-scripts-files:/opt/netbox/netbox/scripts:rw
+      
+  netbox-housekeeping:
+    image: ghcr.io/wolvverine/netbox-plugins:latest
+    depends_on:
+      netbox:
+        condition: service_healthy
+    env_file: stack.env
+    user: "unit:root"  
+    command:
+      - /opt/netbox/housekeeping.sh
+    healthcheck:
+      test: ps -aux | grep -v grep | grep -q housekeeping || exit 1
+      start_period: 20s
+      timeout: 3s
+      interval: 15s
+    volumes:
+      - netbox-config-files:/etc/netbox/config:rw
+      - netbox-media-files:/opt/netbox/netbox/media:rw
+      - netbox-reports-files:/opt/netbox/netbox/reports:rw
+      - netbox-scripts-files:/opt/netbox/netbox/scripts:rw
+      
+  # postgres
+  postgres:
+    image: docker.io/postgres:17-alpine
+    healthcheck:
+      test: pg_isready -q -t 2 -d $$POSTGRES_DB -U $$POSTGRES_USER
+      start_period: 20s
+      timeout: 30s
+      interval: 10s
+      retries: 5
+    env_file: stack.env
+    volumes:
+      - netbox-postgres-data:/var/lib/postgresql/data
+
+  # redis
+  redis:
+    image: docker.io/valkey/valkey:8.0-alpine
+    command:
+      - sh
+      - -c # this is to evaluate the $REDIS_PASSWORD from the env
+      - valkey-server --appendonly yes --requirepass $$REDIS_PASSWORD ## $$ because of docker-compose
+    healthcheck: &redis-healthcheck
+      test: '[ $$(valkey-cli --pass "$${REDIS_PASSWORD}" ping) = ''PONG'' ]'
+      start_period: 5s
+      timeout: 3s
+      interval: 1s
+      retries: 5
+    env_file: stack.env
+    volumes:
+      - netbox-redis-data:/data
+      
+  redis-cache:
+    image: docker.io/valkey/valkey:8.0-alpine
+    command:
+      - sh
+      - -c # this is to evaluate the $REDIS_PASSWORD from the env
+      - valkey-server --requirepass $$REDIS_PASSWORD ## $$ because of docker-compose
+    healthcheck: *redis-healthcheck
+    env_file: stack.env
+    volumes:
+      - netbox-redis-cache-data:/data
+      
+  device-type-library:
+    image: ghcr.io/wolvverine/netbox-device-type-library-import:latest
+    environment:
+      - NETBOX_URL=http://netbox:8080/
+      - NETBOX_TOKEN=<secret>
+      - VENDORS=fortinet,ubiquiti,dell,hp,xerox,qnap,hpe,generic,apc
+      - REPO_BRANCH=master
+
+volumes:
+  netbox-config-files:
+    driver: local
+  netbox-media-files:
+    driver: local
+  netbox-postgres-data:
+    driver: local
+  netbox-redis-cache-data:
+    driver: local
+  netbox-redis-data:
+    driver: local
+  netbox-reports-files:
+    driver: local
+  netbox-scripts-files:
+    driver: local
