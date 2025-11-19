@@ -1,2 +1,9 @@
-netbox_diode_plugin
-netbox_dns
+netboxlabs-diode-netbox-plugin
+netbox-plugin-dns
+netbox-topology-views
+netbox-config-diff
+netbox-routing
+netbox-interface-synchronization
+slurpit_netbox
+netbox-docker-plugin
+netbox-napalm-plugin

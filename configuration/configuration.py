@@ -262,9 +262,14 @@ if 'PAGINATE_COUNT' in environ:
     PAGINATE_COUNT = _environ_get_and_map('PAGINATE_COUNT', None, _AS_INT)
 
 # # Enable installed plugins. Add the name of each plugin to the list.
-PLUGINS=［
+PLUGINS=[
 "netbox_diode_plugin",
-"netbox_dns"
+"netbox_dns",
+"netbox_topology_views",
+"netbox_interface_synchronization",
+"netbox_routing",
+"slurpit_netbox",
+"netbox_docker_plugin"
 ]
 
 
